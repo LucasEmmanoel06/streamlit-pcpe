@@ -206,6 +206,7 @@ def main():
             )
             fig_bar.update_layout(height=400)
             st.plotly_chart(fig_bar, use_container_width=True)
+            st.markdown("---")
         
         with col2:
             st.subheader("📊 Tipos de Crime")
@@ -217,32 +218,71 @@ def main():
             )
             fig_pie.update_layout(height=400)
             st.plotly_chart(fig_pie, use_container_width=True)
+            st.markdown("---")
         
         # Análise temporal
         st.subheader("📅 Análise Temporal")
-        df['mes'] = df['data_ocorrencia'].dt.month
-        df['ano'] = df['data_ocorrencia'].dt.year
         
-        temporal_data = df.groupby(['ano', 'mes']).size().reset_index(name='crimes')
-        temporal_data['mes_nome'] = temporal_data['mes'].map({
-            1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
-            7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
-        })
-        temporal_data['ano_str'] = temporal_data['ano'].astype(str)
+        # Filtro para tipo de crime
+        crime_types_temporal = ["Todos"] + sorted(df['tipo_crime'].unique().tolist())
+        selected_crime_type = st.selectbox(
+            "Filtrar por tipo de crime:",
+            crime_types_temporal,
+            key="temporal_crime_filter"
+        )
         
-        fig_bar_temporal = px.bar(
-            temporal_data,
-            x='mes_nome',
-            y='crimes',
-            color='ano_str',
-            title="Distribuição de Crimes por Mês e Ano",
-            labels={'mes_nome': 'Mês', 'crimes': 'Número de Crimes', 'ano_str': 'Ano'},
-            barmode='group'
-        )
-        fig_bar_temporal.update_layout(
-            xaxis={'categoryorder': 'array', 'categoryarray': ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']}
-        )
-        st.plotly_chart(fig_bar_temporal, use_container_width=True)
+        # Aplicar filtro
+        df_temporal = df.copy()
+        if selected_crime_type != "Todos":
+            df_temporal = df_temporal[df_temporal['tipo_crime'] == selected_crime_type]
+        
+        if len(df_temporal) > 0:
+            df_temporal['mes'] = df_temporal['data_ocorrencia'].dt.month
+            df_temporal['ano'] = df_temporal['data_ocorrencia'].dt.year
+            
+            temporal_data = df_temporal.groupby(['ano', 'mes']).size().reset_index(name='crimes')
+            temporal_data['mes_nome'] = temporal_data['mes'].map({
+                1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+                7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+            })
+            temporal_data['ano_str'] = temporal_data['ano'].astype(str)
+            
+            title_suffix = f" - {selected_crime_type}" if selected_crime_type != "Todos" else ""
+            
+            fig_bar_temporal = px.bar(
+                temporal_data,
+                x='mes_nome',
+                y='crimes',
+                color='ano_str',
+                title=f"Distribuição de Crimes por Mês e Ano{title_suffix}",
+                labels={'mes_nome': 'Mês', 'crimes': 'Número de Crimes', 'ano_str': 'Ano'},
+                barmode='group'
+            )
+            fig_bar_temporal.update_layout(
+                xaxis={'categoryorder': 'array', 'categoryarray': ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']}
+            )
+            st.plotly_chart(fig_bar_temporal, use_container_width=True)
+            
+            # Mostrar estatísticas do filtro
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total de Ocorrências", len(df_temporal))
+            with col2:
+                if len(temporal_data) > 0:
+                    pico_mes = temporal_data.loc[temporal_data['crimes'].idxmax(), 'mes_nome']
+                    pico_ano = temporal_data.loc[temporal_data['crimes'].idxmax(), 'ano_str']
+                    st.metric("Pico de Crimes", f"{pico_mes}/{pico_ano}")
+                else:
+                    st.metric("Pico de Crimes", "N/A")
+            with col3:
+                if len(temporal_data) > 0:
+                    media_mensal = temporal_data['crimes'].mean()
+                    st.metric("Média Mensal", f"{media_mensal:.1f}")
+                else:
+                    st.metric("Média Mensal", "0")
+        else:
+            st.warning(f"Nenhum dado encontrado para o tipo de crime: {selected_crime_type}")
+        st.markdown("---")
         
         # Mapa de crimes
         st.subheader("🗺️ Mapa de Localização dos Crimes")
