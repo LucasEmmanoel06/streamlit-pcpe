@@ -50,9 +50,9 @@ Este é um aplicativo Streamlit focado em análise de crimes com duas funcionali
 python -m venv venv
 ```
 
-### 0.2 Criar um ambiente virtual python
+### 0.2 Ativar ambiente virtual
 ```bash
-python -m venv venv
+.\venv\Scripts\activate
 ```
 
 ### 1. Instalar dependências
