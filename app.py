@@ -18,11 +18,11 @@ from sklearn.decomposition import PCA
 import warnings
 warnings.filterwarnings('ignore')
 
-# Configuração da página streamlit
+# Configuração da página
 st.set_page_config(
-    page_title="Análise de Crimes - ML App",
+    page_title="Análise e Previsão de Crimes",
     page_icon="🚔",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="expanded"
 )
 # Import do dataset
@@ -56,8 +56,8 @@ def prepare_prediction_data(df):
 
 # treinamento do modelo e metricas
 @st.cache_data
-def train_prediction_model(df_agg):
-    """Treina os modelos de previsão"""
+def train_prediction_model(df_agg, model_type='Random Forest'):
+    """Treina o modelo de previsão selecionado"""
     # Preparar dados
     df_model = df_agg.copy()
     df_model = pd.get_dummies(df_model, columns=['bairro'])
@@ -73,48 +73,40 @@ def train_prediction_model(df_agg):
     # Dividir treino e teste
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # Treinar Random Forest
-    rf_model = RandomForestRegressor(random_state=42)
-    rf_model.fit(X_train, y_train)
-    
-    # Treinar Regressão Linear
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    lr_model = LinearRegression()
-    lr_model.fit(X_train_scaled, y_train)
-    
-    # Fazer previsões
-    y_pred_rf = rf_model.predict(X_test)
-    y_pred_lr = lr_model.predict(X_test_scaled)
+    if model_type == 'Random Forest':
+        # Treinar Random Forest
+        model = RandomForestRegressor(random_state=42)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        X_test_used = X_test
+    else:  # Linear Regression
+        # Treinar Regressão Linear
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = LinearRegression()
+        model.fit(X_train_scaled, y_train)
+        y_pred = model.predict(X_test_scaled)
+        X_test_used = X_test_scaled
     
     # Calcular métricas
     metrics = {
-        'Random Forest': {
-            'MAE': mean_absolute_error(y_test, y_pred_rf),
-            'MSE': mean_squared_error(y_test, y_pred_rf),
-            'R²': r2_score(y_test, y_pred_rf)
-        },
-        'Linear Regression': {
-            'MAE': mean_absolute_error(y_test, y_pred_lr),
-            'MSE': mean_squared_error(y_test, y_pred_lr),
-            'R²': r2_score(y_test, y_pred_lr)
-        }
+        'MAE': mean_absolute_error(y_test, y_pred),
+        'MSE': mean_squared_error(y_test, y_pred),
+        'R²': r2_score(y_test, y_pred)
     }
     
     return {
-        'rf_model': rf_model,
-        'lr_model': lr_model,
-        'scaler': scaler,
+        'model': model,
+        'scaler': scaler if model_type == 'Linear Regression' else None,
         'encoder': encoder,
         'metrics': metrics,
-        'X_test': X_test,
-        'X_test_scaled': X_test_scaled,
+        'X_test': X_test_used,
         'y_test': y_test,
-        'y_pred_rf': y_pred_rf,
-        'y_pred_lr': y_pred_lr,
-        'feature_names': X.columns.tolist()
+        'y_pred': y_pred,
+        'feature_names': X.columns.tolist(),
+        'model_type': model_type
     }
 
 # preparação para clustering
@@ -165,7 +157,7 @@ def main():
     st.sidebar.title("Navegação")
     page = st.sidebar.selectbox(
         "Escolha uma análise:",
-        ["📈 Dashboard Geral", "🔮 Previsão de Latrocínios", "🧫 Clustering de Crimes"]
+        ["📈 Dashboard Geral", "🔮 Previsão de Latrocínios", "🎯 Clustering de Crimes"]
     )
     
     # Carregar dados
@@ -333,53 +325,41 @@ def main():
     # Previsão de Latrocínios
     elif page == "🔮 Previsão de Latrocínios":
         st.header("🔮 Previsão de Latrocínios")
-        st.markdown("""
-        ### Contexto do Problema
-        Esta análise visa prever o número de latrocínios que podem ocorrer nos bairros do Recife,
-        auxiliando a Polícia Civil na alocação eficiente de recursos e medidas preventivas.
-        """)
+        
+        # Parâmetros do modelo
+        st.sidebar.subheader("⚙️ Parâmetros do Modelo")
+        model_type = st.sidebar.selectbox(
+            "Tipo de Modelo:",
+            ["Random Forest", "Linear Regression"]
+        )
         
         # Preparar dados e treinar modelo
-        with st.spinner("Preparando dados e treinando modelos..."):
+        with st.spinner(f"Preparando dados e treinando modelo {model_type}..."):
             df_agg = prepare_prediction_data(df)
-            model_results = train_prediction_model(df_agg)
+            model_results = train_prediction_model(df_agg, model_type)
         
-        # Métricas dos modelos
-        st.subheader("📊 Performance dos Modelos")
+        # Métricas do modelo
+        st.subheader(f"📊 Performance do Modelo: {model_type}")
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.write("**Random Forest**")
-            st.write(f"MAE: {model_results['metrics']['Random Forest']['MAE']:.2f}")
-            st.write(f"MSE: {model_results['metrics']['Random Forest']['MSE']:.2f}")
-            st.write(f"R²: {model_results['metrics']['Random Forest']['R²']:.2f}")
-        
+            st.metric("MAE", f"{model_results['metrics']['MAE']:.2f}")
         with col2:
-            st.write("**Regressão Linear**")
-            st.write(f"MAE: {model_results['metrics']['Linear Regression']['MAE']:.2f}")
-            st.write(f"MSE: {model_results['metrics']['Linear Regression']['MSE']:.2f}")
-            st.write(f"R²: {model_results['metrics']['Linear Regression']['R²']:.2f}")
+            st.metric("MSE", f"{model_results['metrics']['MSE']:.2f}")
+        with col3:
+            st.metric("R²", f"{model_results['metrics']['R²']:.2f}")
         
-        # Gráficos de dispersão
-        st.subheader("📈 Comparação: Valores Reais vs Previsões")
+        # Gráfico de dispersão
+        st.subheader("📈 Valores Reais vs Previsões")
         
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+        fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         
-        # Random Forest
-        ax1.scatter(model_results['y_test'], model_results['y_pred_rf'], alpha=0.6)
-        ax1.plot([model_results['y_test'].min(), model_results['y_test'].max()], 
+        ax.scatter(model_results['y_test'], model_results['y_pred'], alpha=0.6)
+        ax.plot([model_results['y_test'].min(), model_results['y_test'].max()], 
                 [model_results['y_test'].min(), model_results['y_test'].max()], 'r--')
-        ax1.set_title('Random Forest')
-        ax1.set_xlabel('Valores Reais')
-        ax1.set_ylabel('Previsões')
-        
-        # Linear Regression
-        ax2.scatter(model_results['y_test'], model_results['y_pred_lr'], alpha=0.6)
-        ax2.plot([model_results['y_test'].min(), model_results['y_test'].max()], 
-                [model_results['y_test'].min(), model_results['y_test'].max()], 'r--')
-        ax2.set_title('Regressão Linear')
-        ax2.set_xlabel('Valores Reais')
-        ax2.set_ylabel('Previsões')
+        ax.set_title(f'{model_type} - Valores Reais vs Previsões')
+        ax.set_xlabel('Valores Reais')
+        ax.set_ylabel('Previsões')
         
         plt.tight_layout()
         st.pyplot(fig)
