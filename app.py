@@ -224,7 +224,7 @@ def main():
         df['ano'] = df['data_ocorrencia'].dt.year
         
         temporal_data = df.groupby(['ano', 'mes']).size().reset_index(name='crimes')
-        temporal_data['data'] = pd.to_datetime(temporal_data[['ano', 'mes']].assign(day=1))
+        temporal_data['data'] = pd.to_datetime(temporal_data[['ano', 'mes']].assign(day=1).rename(columns={'ano': 'year', 'mes': 'month'}))
         
         fig_line = px.line(
             temporal_data,
@@ -246,18 +246,18 @@ def main():
                 ["Todos"] + list(df['tipo_crime'].unique())
             )
         with col2:
-            bairro_filter = st.selectbox(
-                "Bairro:",
-                ["Todos"] + list(df['bairro'].unique())
+            modus_filter = st.selectbox(
+                "Modus Operandi:",
+                ["Todos"] + list(df['descricao_modus_operandi'].unique())
             )
         
         # Filtrar dados
         df_map = df.copy()
         if crime_type_filter != "Todos":
             df_map = df_map[df_map['tipo_crime'] == crime_type_filter]
-        if bairro_filter != "Todos":
-            df_map = df_map[df_map['bairro'] == bairro_filter]
-        
+        if modus_filter != "Todos":
+            df_map = df_map[df_map['descricao_modus_operandi'] == modus_filter]
+
         if len(df_map) > 0:
             # Criar mapa
             center_lat = df_map['latitude'].mean()
