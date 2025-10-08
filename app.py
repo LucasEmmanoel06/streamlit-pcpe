@@ -224,16 +224,25 @@ def main():
         df['ano'] = df['data_ocorrencia'].dt.year
         
         temporal_data = df.groupby(['ano', 'mes']).size().reset_index(name='crimes')
-        temporal_data['data'] = pd.to_datetime(temporal_data[['ano', 'mes']].assign(day=1).rename(columns={'ano': 'year', 'mes': 'month'}))
+        temporal_data['mes_nome'] = temporal_data['mes'].map({
+            1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+            7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+        })
+        temporal_data['ano_str'] = temporal_data['ano'].astype(str)
         
-        fig_line = px.line(
+        fig_bar_temporal = px.bar(
             temporal_data,
-            x='data',
+            x='mes_nome',
             y='crimes',
-            title="Evolução dos Crimes ao Longo do Tempo",
-            labels={'data': 'Data', 'crimes': 'Número de Crimes'}
+            color='ano_str',
+            title="Distribuição de Crimes por Mês e Ano",
+            labels={'mes_nome': 'Mês', 'crimes': 'Número de Crimes', 'ano_str': 'Ano'},
+            barmode='group'
         )
-        st.plotly_chart(fig_line, use_container_width=True)
+        fig_bar_temporal.update_layout(
+            xaxis={'categoryorder': 'array', 'categoryarray': ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']}
+        )
+        st.plotly_chart(fig_bar_temporal, use_container_width=True)
         
         # Mapa de crimes
         st.subheader("🗺️ Mapa de Localização dos Crimes")
