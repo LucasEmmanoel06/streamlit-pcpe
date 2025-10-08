@@ -37,16 +37,17 @@ def load_data():
         return None
 # preparação da previsão
 @st.cache_data
-def prepare_prediction_data(df):
+def prepare_prediction_data(df, crime_type='Latrocínio'):
+    """Prepara os dados para o modelo de previsão"""
     df_pred = df.copy()
     df_pred['month'] = df_pred['data_ocorrencia'].dt.month
     df_pred['year'] = df_pred['data_ocorrencia'].dt.year
     
-    # Filtrar apenas latrocínios
-    df_latrocinio = df_pred[df_pred['tipo_crime'] == 'Latrocínio'].copy()
+    # Filtrar pelo tipo de crime selecionado
+    df_crime = df_pred[df_pred['tipo_crime'] == crime_type].copy()
     
     # Agregar por bairro, ano e mês
-    df_agg = df_latrocinio.groupby(['bairro', 'year', 'month']).size().reset_index(name='crime_count')
+    df_agg = df_crime.groupby(['bairro', 'year', 'month']).size().reset_index(name='crime_count')
     df_agg['date'] = pd.to_datetime(df_agg[['year', 'month']].assign(day=1))
     df_agg = df_agg.sort_values(by=['bairro', 'date'])
     df_agg['previous_month_crime_count'] = df_agg.groupby('bairro')['crime_count'].shift(1)
@@ -157,7 +158,7 @@ def main():
     st.sidebar.title("Navegação")
     page = st.sidebar.selectbox(
         "Escolha uma análise:",
-        ["📈 Dashboard Geral", "🔮 Previsão de Latrocínios", "🎯 Clustering de Crimes"]
+        ["📈 Dashboard Geral", "🔮 Previsão de Crimes", "🎯 Clustering de Crimes"]
     )
     
     # Carregar dados
@@ -177,9 +178,6 @@ def main():
             st.metric("Bairros Afetados", df['bairro'].nunique())
         with col3:
             st.metric("Tipos de Crime", df['tipo_crime'].nunique())
-        with col4:
-            latrocinios = len(df[df['tipo_crime'] == 'Latrocínio'])
-            st.metric("Latrocínios", latrocinios)
         
         st.markdown("---")
         
@@ -322,24 +320,33 @@ def main():
         else:
             st.warning("Nenhum dado encontrado para os filtros selecionados.")
     
-    # Previsão de Latrocínios
-    elif page == "🔮 Previsão de Latrocínios":
-        st.header("🔮 Previsão de Latrocínios")
+    # Previsão de Crimes
+    elif page == "🔮 Previsão de Crimes":
+        st.header("🔮 Previsão de Crimes")
         
         # Parâmetros do modelo
         st.sidebar.subheader("⚙️ Parâmetros do Modelo")
+        
+        # Seleção do tipo de crime
+        crime_types = sorted(df['tipo_crime'].unique())
+        crime_type = st.sidebar.selectbox(
+            "Tipo de Crime:",
+            crime_types,
+            index=crime_types.index('Latrocínio') if 'Latrocínio' in crime_types else 0
+        )
+        
         model_type = st.sidebar.selectbox(
             "Tipo de Modelo:",
             ["Random Forest", "Linear Regression"]
         )
         
         # Preparar dados e treinar modelo
-        with st.spinner(f"Preparando dados e treinando modelo {model_type}..."):
-            df_agg = prepare_prediction_data(df)
+        with st.spinner(f"Preparando dados e treinando modelo {model_type} para {crime_type}..."):
+            df_agg = prepare_prediction_data(df, crime_type)
             model_results = train_prediction_model(df_agg, model_type)
         
         # Métricas do modelo
-        st.subheader(f"📊 Performance do Modelo: {model_type}")
+        st.subheader(f"📊 Performance do Modelo: {model_type} - {crime_type}")
         
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -357,7 +364,7 @@ def main():
         ax.scatter(model_results['y_test'], model_results['y_pred'], alpha=0.6)
         ax.plot([model_results['y_test'].min(), model_results['y_test'].max()], 
                 [model_results['y_test'].min(), model_results['y_test'].max()], 'r--')
-        ax.set_title(f'{model_type} - Valores Reais vs Previsões')
+        ax.set_title(f'{model_type} - {crime_type} - Valores Reais vs Previsões')
         ax.set_xlabel('Valores Reais')
         ax.set_ylabel('Previsões')
         
@@ -365,33 +372,33 @@ def main():
         st.pyplot(fig)
         
         # Análise por bairro
-        st.subheader("🏘️ Análise de Latrocínios por Bairro")
+        st.subheader(f"🏘️ Análise de {crime_type} por Bairro")
         
-        latrocinios_bairro = df[df['tipo_crime'] == 'Latrocínio']['bairro'].value_counts()
+        crime_bairro = df[df['tipo_crime'] == crime_type]['bairro'].value_counts()
         
-        fig_lat = px.bar(
-            x=latrocinios_bairro.index,
-            y=latrocinios_bairro.values,
-            title="Número de Latrocínios por Bairro",
-            labels={'x': 'Bairro', 'y': 'Número de Latrocínios'}
+        fig_crime = px.bar(
+            x=crime_bairro.index,
+            y=crime_bairro.values,
+            title=f"Número de {crime_type} por Bairro",
+            labels={'x': 'Bairro', 'y': f'Número de {crime_type}'}
         )
-        fig_lat.update_xaxes(tickangle=45)
-        st.plotly_chart(fig_lat, use_container_width=True)
+        fig_crime.update_xaxes(tickangle=45)
+        st.plotly_chart(fig_crime, use_container_width=True)
         
         # Tendência temporal
-        st.subheader("📅 Tendência Temporal dos Latrocínios")
+        st.subheader(f"📅 Tendência Temporal de {crime_type}")
         
-        df_lat_temporal = df[df['tipo_crime'] == 'Latrocínio'].copy()
-        df_lat_temporal['ano_mes'] = df_lat_temporal['data_ocorrencia'].dt.to_period('M')
-        lat_temporal = df_lat_temporal.groupby('ano_mes').size().reset_index(name='count')
-        lat_temporal['ano_mes'] = lat_temporal['ano_mes'].astype(str)
+        df_crime_temporal = df[df['tipo_crime'] == crime_type].copy()
+        df_crime_temporal['ano_mes'] = df_crime_temporal['data_ocorrencia'].dt.to_period('M')
+        crime_temporal = df_crime_temporal.groupby('ano_mes').size().reset_index(name='count')
+        crime_temporal['ano_mes'] = crime_temporal['ano_mes'].astype(str)
         
         fig_temporal = px.line(
-            lat_temporal,
+            crime_temporal,
             x='ano_mes',
             y='count',
-            title="Evolução dos Latrocínios ao Longo do Tempo",
-            labels={'ano_mes': 'Período (Ano-Mês)', 'count': 'Número de Latrocínios'}
+            title=f"Evolução de {crime_type} ao Longo do Tempo",
+            labels={'ano_mes': 'Período (Ano-Mês)', 'count': f'Número de {crime_type}'}
         )
         fig_temporal.update_xaxes(tickangle=45)
         st.plotly_chart(fig_temporal, use_container_width=True)
