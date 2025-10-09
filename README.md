@@ -34,15 +34,6 @@ Este é um aplicativo Streamlit focado em análise de crimes com duas funcionali
 - **Folium**: Mapas interativos
 - **Matplotlib/Seaborn**: Visualizações estáticas
 
-## 📁 Estrutura do Projeto
-
-```
-.
-├── app.py                          # Aplicação principal Streamlit
-├── requirements.txt                # Dependências do projeto
-├── README.md                      # Documentação do projeto
-```
-
 ## 🚀 Como Executar
 
 ### 0.1 Criar um ambiente virtual python
