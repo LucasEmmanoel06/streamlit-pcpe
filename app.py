@@ -489,33 +489,6 @@ def main():
         )
         st.plotly_chart(fig_cluster_dist, use_container_width=True)
         
-        # Heatmap de características
-        st.subheader("🌡️ Heatmap de Características dos Clusters")
-        
-        # Criar tabela de características por cluster
-        cluster_features = []
-        for cluster_id in range(n_clusters):
-            cluster_data = df_clustered[df_clustered['cluster'] == cluster_id]
-            features = {
-                'Cluster': f'Cluster {cluster_id}',
-                'Total_Crimes': len(cluster_data),
-                'Avg_Vitimas': cluster_data['quantidade_vitimas'].mean(),
-                'Avg_Suspeitos': cluster_data['quantidade_suspeitos'].mean(),
-                'Avg_Idade_Suspeito': cluster_data['idade_suspeito'].mean()
-            }
-            cluster_features.append(features)
-        
-        cluster_features_df = pd.DataFrame(cluster_features)
-        cluster_features_df = cluster_features_df.set_index('Cluster')
-        
-        fig_heatmap = px.imshow(
-            cluster_features_df.T,
-            title="Características dos Clusters (Normalizado)",
-            labels={'x': 'Cluster', 'y': 'Características', 'color': 'Valor Normalizado'},
-            aspect="auto"
-        )
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-    
     # Rodapé
     st.markdown("---")
     st.markdown("""
